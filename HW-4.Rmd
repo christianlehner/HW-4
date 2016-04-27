@@ -1,6 +1,6 @@
 ---
 title: "MATH 216 Homework 4"
-author: "WRITE YOUR NAME HERE"
+author: "Christian Lehner"
 output: html_document
 ---
 
@@ -23,10 +23,10 @@ suppressPackageStartupMessages(library(leaflet))
 
 Please indicate
 
-* Who you collaborated with:
-* Roughly how much time you spent on this HW:
-* What gave you the most trouble:
-* Any comments you have: 
+* Who you collaborated with: Aminata, Delaney, Kyler, Paul
+* Roughly how much time you spent on this HW: 10
+* What gave you the most trouble: qestion two, shapefiles, leaflet
+* Any comments you have: http://rpubs.com/clehner/HW04
 
 
 
@@ -39,6 +39,7 @@ Please indicate
 # to data frames so that we can ggplot them.
 US_state <- map_data("state") %>% 
   tbl_df()
+
 US_county <- map_data("county") %>% 
   tbl_df()
 ```
@@ -50,7 +51,33 @@ American University in DC](http://www.american.edu/spa/ccps/Data-Sets.cfm) and
 create a map involving only the lower 48 states that show voter behavior at a 
 **county** level. To keep things simple let's only consider George W. Bush, Al
 Gore, and Ralph Nader. Your write-up must include:
+```{r, cache=TRUE, echo=FALSE}
 
+county <- read.csv("COUNTY.csv", header=TRUE) %>% 
+  tbl_df()
+
+
+county <- as.data.frame(sapply(county,gsub,pattern="\xa0",replacement=" "))
+
+county$STATE <- as.character(county$STATE)
+county$STATE <- tolower(county$STATE)
+
+county$COUNTY <- as.character(county$COUNTY)
+county$COUNTY <- tolower(county$COUNTY)
+
+
+county$PBUSH <- as.character(county$PBUSH)
+county$PBUSH <- as.numeric(county$PBUSH)
+
+
+
+US_county$COUNTY <- as.character(US_county$subregion)
+US_county$STATE <- as.character(US_county$region)
+US_state$STATE <- as.character(US_state$region)
+
+
+prop <- left_join(county, US_county, by = c("STATE","COUNTY"))
+```
 1. A [choropleth map](https://en.wikipedia.org/wiki/Choropleth_map) where
     * Counties are filled with red when they tend to favor Bush
     * Counties are filled with white when they tend to be split
@@ -58,7 +85,18 @@ Gore, and Ralph Nader. Your write-up must include:
 2. An answer to the following question: which states exhibit the greatest
 **within state heterogeneity** in voting? Come up with a mathematical
 justification.
+```{r, cache=TRUE, echo=FALSE}
 
+p<- ggplot(data = NULL) +
+  geom_path(data=prop, aes(x=long, y=lat, group=group), col="black", size=0.05) +
+  geom_polygon(data=prop, aes(x=long, y=lat, group=group, fill=PBUSH)) +
+  geom_path(data=US_state, aes(x=long, y=lat, group=group), col="black", size=0.1) +
+  coord_map()
+p + scale_fill_gradient2(low="blue", mid="white", high="darkred", name="Prop Bush over Gore and Nader", 
+                         midpoint = .5)
+ 
+
+```
 
 ### Hints
 
@@ -71,42 +109,22 @@ as such certain counties will not match up. The number is not that large.
 Virginia](http://en.wikipedia.org/wiki/List_of_counties_in_Virginia)
 
 
-### Code Hints
-
-This function eliminates all non-alphanumeric characters and spaces and converts
-all text to lower case:
-
-```{r}
-clean_text <- function(text){
-  text <- gsub("[^[:alnum:]]", "", text)
-  text <- gsub(" ", "", text)
-  text <- tolower(text)
-  return(text)
-}
-clean_text("HeLLO wOrLd.")
-```
-
-For the following `ggplot`, see how I didn't define `data` nor any `aes`thetics
-in the base `ggplot`, but only within the respective `geom`'s. This is a nice
-trick that allows you to have different `data` and different `aes` apply to
-different `geom`'s; in this case state-level vs county-level data.
-
-```{r}
-ggplot(data=NULL) +
-  geom_polygon(data=US_county, aes(x=long, y=lat, group=group, fill=1)) +
-  geom_path(data=US_county, aes(x=long, y=lat, group=group), col="black", size=0.05) +
-  geom_path(data=US_state, aes(x=long, y=lat, group=group), col="black", size=0.1) +
-  coord_map()
-```
 
 
 ### Write-Up
 
 ```{r, fig.width=12, fig.height=6}
 
+
+
+
+
 ```
 
+>Gore would have had a much better chance if Nader hadnt been in the general elektion. The 2000 election is one of the reasons why political candidates will commit to not running as independents in after the primaries to ensure party control,and chance of winning the general. Voting should be viewed less as a social or just statement but as the means to end,
+and the lesser of mutiple evils. Cali, Oregon and washington are heterogenous, while states like montana are homogenous and vote republican.
 
+>I have yet to figure out morans I... I am working on it! Sorry.
 
 
 
@@ -136,13 +154,125 @@ between the different ethnic groups.
 Here is some starter code:
 
 ```{r}
-shapefile_name <- paste(getwd(), "/VT_census_tracts/tl_2015_50_tract.shp", sep="")
-VT <- readOGR(shapefile_name, layer = "tl_2015_50_tract", verbose = FALSE)
-leaflet(VT) %>%
-  addTiles() %>% 
-  addPolylines(color="black", weight=1)
-```
 
+shapefile_name <- paste(getwd(), "/tl_2010_50_tract10/tl_2010_50_tract10.shp", sep="")
+
+VT <- readOGR(shapefile_name, layer = "tl_2010_50_tract10", verbose = FALSE)
+
+
+vtrace1 <- read.csv("VTRACE.csv", header=TRUE) %>% 
+  tbl_df() %>% 
+  filter(State.U.S..Abbreviation..USPS. == "vt") 
+
+vtrace <- vtrace1 %>%
+  group_by(FIPS) %>%
+  mutate(prop_white = Total.Population..White.Alone/Total.Population.,
+  prop_black = Total.Population..Black.or.African.American.Alone/Total.Population.,
+  prop_hispanic = Total.Population..Hispanic.or.Latino/Total.Population.,
+  prop_asian = Total.Population..Not.Hispanic.or.Latino..Asian.Alone/Total.Population.,
+  prop_other = Total.Population..Hispanic.or.Latino..Other.Hispanic.or.Latino..All.Other.Hispanic.or.Latino/Total.Population.)
+
+
+vtrace <- vtrace %>%
+  mutate(GEOID10 = as.character(FIPS))
+
+
+
+VT@data$rec<-1:nrow(VT@data)
+tmp <- left_join(VT@data,vtrace, by = "GEOID10") %>%
+  arrange(rec)
+
+VT@data<-tmp
+
+
+df<- as.data.frame(VT)
+
+
+
+
+
+tract_popup <- paste0("<strong> Proportion Hispanic: </strong> ",
+                      VT$prop_hispanic,
+                      "<strong> Location: </strong>",
+                      VT$Name.of.Area)
+
+binpal <- colorBin("Blues", VT$prop_hispanic, 10, pretty = FALSE)
+
+
+map1<-leaflet(VT) %>%
+  addTiles(urlTemplate =
+             "http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png") %>%
+  addPolylines(data = VT, color="black", weight=2) %>%
+  addPolygons(stroke = FALSE, smoothFactor = .2, fillOpacity = 2,
+    color = ~binpal(VT$prop_hispanic), popup = tract_popup)
+map1
+
+
+tract_popup <- paste0("<strong> Proportion White: </strong> ",
+                      VT$prop_white,
+                      "<strong> Location: </strong>",
+                      VT$Name.of.Area)
+
+binpal <- colorBin("Blues", VT$prop_white, 20, pretty = FALSE)
+
+
+map2<-leaflet(VT) %>%
+  addTiles(urlTemplate =
+             "http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png") %>%
+  addPolylines(data = VT, color="black", weight=2) %>%
+  addPolygons(stroke = FALSE, smoothFactor = .2, fillOpacity = 2,
+    color = ~binpal(VT$prop_white), popup = tract_popup)
+map2
+
+tract_popup <- paste0("<strong> Proportion Asian: </strong> ",
+                      VT$prop_asian,
+                      "<strong> Location: </strong>",
+                      VT$Name.of.Area)
+
+binpal <- colorBin("Blues", VT$prop_asian, 10, pretty = FALSE)
+
+
+map3<-leaflet(VT) %>%
+  addTiles(urlTemplate =
+             "http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png") %>%
+  addPolylines(data = VT, color="black", weight=2) %>%
+  addPolygons(stroke = FALSE, smoothFactor = .2, fillOpacity = 2,
+    color = ~binpal(VT$prop_asian), popup = tract_popup)
+map3
+
+
+tract_popup <- paste0("<strong> Proportion Other: </strong> ",
+                      VT$prop_other,
+                      "<strong> Location: </strong>",
+                      VT$Name.of.Area)
+
+binpal <- colorBin("Blues", VT$prop_other, 10, pretty = FALSE)
+
+map4<-leaflet(VT) %>%
+  addTiles(urlTemplate =
+             "http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png") %>%
+  addPolylines(data = VT, color="black", weight=2) %>%
+  addPolygons(stroke = FALSE, smoothFactor = .2, fillOpacity = 2,
+    color = ~binpal(VT$prop_other), popup = tract_popup)
+map4
+
+tract_popup <- paste0("<strong> Proportion Black: </strong> ",
+                      VT$prop_black,
+                      "<strong> Location: </strong>",
+                      VT$Name.of.Area)
+
+binpal <- colorBin("Blues", VT$prop_black, 10, pretty = FALSE)
+
+
+map5<-leaflet(VT) %>%
+  addTiles(urlTemplate =
+             "http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png") %>%
+  addPolylines(data = VT, color="black", weight=2) %>%
+  addPolygons(stroke = FALSE, smoothFactor = .2, fillOpacity = 2,
+    color = ~binpal(VT$prop_black), popup = tract_popup)
+map5
+
+```
 
 ### Write-Up
 
@@ -153,5 +283,4 @@ the link to your app.
 Comment on general ethnic demographic trends that's more substantive than just
 "Vermont is really white."
 
-
-
+>Vermont IS really white, but there are also areas of higher proportions of different ethniticites, i.e. burlington, rutland, montepelier. More urban areas tend to be more diverse in population. 
